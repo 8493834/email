@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="referrer" content="no-referrer">
+  <title>SPS Email</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231b5a49'/%3E%3Cpath d='M6 11l10 7 10-7' fill='none' stroke='%23f4f8f5' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Crect x='6' y='9' width='20' height='14' rx='2' fill='none' stroke='%23f4f8f5' stroke-width='2.4'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Step 1: access password -->
+  <main id="gate" class="narrow" hidden>
+    <h1 class="brand-lg">SPS Email</h1>
+    <p class="lede">Enter the access password to continue.</p>
+    <form id="gate-form" autocomplete="off">
+      <label for="gate-pw">Access password</label>
+      <input id="gate-pw" type="password" required autofocus>
+      <p class="error" id="gate-error" role="alert"></p>
+      <button class="btn primary" type="submit">Continue</button>
+    </form>
+  </main>
+
+  <!-- Step 2: create an account, or log in -->
+  <main id="auth" class="narrow" hidden>
+    <h1 class="brand-lg">SPS Email</h1>
+
+    <section aria-labelledby="signup-h">
+      <h2 id="signup-h">Create your account</h2>
+      <form id="signup-form">
+        <label for="su-user">Choose your address</label>
+        <div class="addr">
+          <input id="su-user" autocomplete="username" autocapitalize="none" spellcheck="false" required minlength="3" maxlength="32">
+          <span class="suffix">@sps-email.com</span>
+        </div>
+        <label for="su-pw">Password <span class="hint">at least 10 characters</span></label>
+        <input id="su-pw" type="password" autocomplete="new-password" required minlength="10">
+        <p class="error" id="su-error" role="alert"></p>
+        <button class="btn primary" type="submit">Create account</button>
+      </form>
+    </section>
+
+    <hr>
+
+    <section aria-labelledby="login-h">
+      <h2 id="login-h">Already have an account?</h2>
+      <form id="login-form">
+        <label for="li-user">Address</label>
+        <div class="addr">
+          <input id="li-user" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+          <span class="suffix">@sps-email.com</span>
+        </div>
+        <label for="li-pw">Password</label>
+        <input id="li-pw" type="password" autocomplete="current-password" required>
+        <p class="error" id="li-error" role="alert"></p>
+        <button class="btn" type="submit">Log in</button>
+      </form>
+    </section>
+  </main>
+
+  <!-- Mail -->
+  <div id="app" class="app" data-view="list" hidden>
+    <aside class="side">
+      <div class="brand">SPS Email</div>
+      <button class="btn primary" id="compose-btn" type="button">Write email</button>
+      <nav aria-label="Folders">
+        <button type="button" class="folder" data-folder="inbox" aria-current="page">Inbox <span id="unread" class="count" hidden></span></button>
+        <button type="button" class="folder" data-folder="sent">Sent</button>
+      </nav>
+      <div class="who">
+        <span id="who" class="who-addr"></span>
+        <button type="button" class="link" id="pw-btn">Change password</button>
+        <button type="button" class="link" id="logout-btn">Log out</button>
+      </div>
+    </aside>
+
+    <section class="list" aria-label="Messages">
+      <form class="search" role="search" onsubmit="return false">
+        <label class="sr" for="q">Search mail</label>
+        <input id="q" type="search" placeholder="Search this folder">
+      </form>
+      <p class="retention" id="retention"></p>
+      <ul id="items" class="items"></ul>
+      <p id="empty" class="empty" hidden></p>
+    </section>
+
+    <article class="reader" id="reader" aria-live="polite">
+      <p class="placeholder">Select an email to read it.</p>
+    </article>
+  </div>
+
+  <!-- Write email -->
+  <dialog id="compose">
+    <form id="compose-form" method="dialog">
+      <header><h2>New email</h2><button type="button" class="link" id="compose-close" aria-label="Close">Close</button></header>
+      <label for="c-to">To <span class="hint">separate several addresses with commas</span></label>
+      <input id="c-to" required autocomplete="off" spellcheck="false">
+      <p class="hint" id="c-note" hidden style="margin:0.3rem 0 0">You can email other @sps-email.com addresses. Emails to Gmail, Outlook and other sites aren't supported yet.</p>
+      <label for="c-subject">Subject</label>
+      <input id="c-subject" maxlength="300" autocomplete="off">
+      <label for="c-body">Message</label>
+      <textarea id="c-body" rows="12"></textarea>
+      <ul class="send-errors" id="c-errors" role="alert"></ul>
+      <footer>
+        <button class="btn primary" id="c-send" type="submit">Send</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Change password -->
+  <dialog id="pw-dialog">
+    <form id="pw-form" method="dialog">
+      <header><h2>Change password</h2><button type="button" class="link" id="pw-close">Close</button></header>
+      <label for="pw-cur">Current password</label>
+      <input id="pw-cur" type="password" autocomplete="current-password" required>
+      <label for="pw-new">New password <span class="hint">at least 10 characters</span></label>
+      <input id="pw-new" type="password" autocomplete="new-password" required minlength="10">
+      <p class="error" id="pw-error" role="alert"></p>
+      <footer><button class="btn primary" type="submit">Save password</button></footer>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
