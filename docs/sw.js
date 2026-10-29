@@ -5,14 +5,14 @@
 // Bump CACHE when you want every device to drop its old copy.
 const CACHE = "sps-email-v2";
 const SHELL = [
-  "./",
-  "./index.html",
-  "./style.css",
-  "./app.js",
-  "./config.js",
-  "./manifest.webmanifest",
-  "./icons/icon-192.png",
-  "./icons/icon-512.png",
+  ".https://8493834.github.io/email/",
+  ".https://8493834.github.io/email/index.html",
+  ".https://8493834.github.io/email/style.css",
+  ".https://8493834.github.io/email/app.js",
+  ".https://8493834.github.io/email/config.js",
+  ".https://8493834.github.io/email/manifest.webmanifest",
+  ".https://8493834.github.io/email/icons/icon-192.png",
+  ".https://8493834.github.io/email/icons/icon-512.png",
 ];
 
 self.addEventListener("install", (event) => {
