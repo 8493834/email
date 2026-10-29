@@ -1,0 +1,18 @@
+{
+  "id": "./",
+  "name": "SPS Email",
+  "short_name": "SPS Email",
+  "description": "Read and write email at your sps-email.com address.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#e8eee8",
+  "theme_color": "#1b5a49",
+  "categories": ["productivity", "communication"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

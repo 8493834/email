@@ -196,6 +196,55 @@ dialog form { padding: 1.1rem 1.25rem 1.25rem; }
 dialog header { display: flex; justify-content: space-between; align-items: baseline; }
 dialog h2 { font-size: 1.3rem; }
 dialog footer { margin-top: 1rem; display: flex; justify-content: flex-end; }
+dialog.wide { width: min(54rem, calc(100vw - 1.5rem)); }
+.dlg { padding: 1.1rem 1.25rem 1.4rem; }
+.dlg h3 { font-family: var(--serif); font-size: 1.1rem; margin: 1.5rem 0 0.4rem; }
+.dlg form { padding: 0; }
+.dlg .hint { margin-left: 0; }
+.check { display: flex; align-items: center; gap: 0.6rem; font-weight: 400; margin: 0.4rem 0 0.8rem; }
+.check input { width: 1.1rem; height: 1.1rem; accent-color: var(--brand); }
+.inline-form .row { display: flex; gap: 0.5rem; }
+.inline-form .row input { flex: 1; min-width: 0; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 0.8rem; }
+table.users { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+table.users th { text-align: left; font-weight: 600; color: var(--muted); padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.users td { padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--line); vertical-align: middle; }
+table.users tr:last-child td { border-bottom: 0; }
+table.users td:nth-child(2), table.users td:nth-child(4) { white-space: nowrap; }
+table.users td:first-child { overflow-wrap: anywhere; min-width: 11rem; }
+.acts { display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; justify-content: flex-end; }
+.badge { margin-left: 0.5rem; padding: 0 0.45rem; font-size: 0.75rem; font-weight: 700; border-radius: 999px; background: var(--brand); color: var(--brand-ink); }
+.dlg td .hint { margin-left: 0.4rem; white-space: nowrap; }
+@media (max-width: 640px) {
+  .table-wrap { overflow: visible; }
+  table.users thead { display: none; }
+  table.users, table.users tbody, table.users tr { display: block; }
+  table.users tr { padding: 0.75rem 0.85rem; border-bottom: 1px solid var(--line); }
+  table.users tr:last-child { border-bottom: 0; }
+  table.users td { display: inline-block; padding: 0.1rem 0.9rem 0.1rem 0; border: 0; font-size: 0.88rem; color: var(--muted); }
+  table.users td:first-child { display: block; min-width: 0; font-size: 0.95rem; color: var(--ink); padding-bottom: 0.2rem; }
+  table.users td:nth-child(2)::before { content: "Joined "; }
+  table.users td:nth-child(3)::before { content: "Emails: "; }
+  table.users td:nth-child(4)::before { content: "Last login "; }
+  table.users td.acts { display: flex; justify-content: flex-start; padding: 0.5rem 0 0; font-size: 0.9rem; }
+}
+.link.danger { color: var(--pin); }
+.who-ent { font-size: 0.82rem; color: var(--muted); }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 0.9rem; align-items: start; }
+.form-grid .full { grid-column: 1 / -1; }
+.form-grid .end { align-self: end; padding-bottom: 0.05rem; }
+.form-grid .full.end { justify-self: start; margin-top: 0.9rem; }
+.form-grid:not(.full) .end { margin-top: 1.9rem; }
+.empty-note { color: var(--muted); font-size: 0.92rem; margin: 0.3rem 0 0; }
+.narrow section + form, .narrow h2 + .lede { margin-top: 0.2rem; }
+#ent-back { margin-left: 0.5rem; }
+@media (max-width: 640px) {
+  .form-grid { grid-template-columns: 1fr; }
+  .form-grid .end { margin-top: 0.9rem; }
+  table.users.ents td:nth-child(2)::before { content: "Manager: "; }
+  table.users.ents td:nth-child(3)::before { content: "Accounts: "; }
+  table.users.ents td:nth-child(4)::before { content: "Created "; }
+}
 .send-errors { list-style: none; padding: 0; margin: 0.75rem 0 0; color: var(--pin); font-size: 0.9rem; }
 .toast {
   position: fixed; left: 50%; bottom: 1.5rem; transform: translateX(-50%);
@@ -210,10 +259,11 @@ dialog footer { margin-top: 1rem; display: flex; justify-content: flex-end; }
   .side {
     flex-direction: row; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.9rem;
     padding: 0.7rem 0.9rem; border-right: 0; border-bottom: 1px solid var(--line);
+    padding-top: calc(0.7rem + env(safe-area-inset-top));
   }
   .side nav { flex-direction: row; }
   .who { margin: 0 0 0 auto; flex-direction: row; gap: 0.9rem; flex-wrap: wrap; align-items: center; }
-  .who-addr { display: none; }
+  .who-addr, .who-ent { display: none; }
   .list { border-right: 0; }
   .reader { padding: 1rem 1.1rem 3rem; }
   .back { display: inline-block; }

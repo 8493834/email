@@ -10,12 +10,12 @@ const state = {
   folder: "inbox",
   retention: 15,
   items: [],
-  selected: null,
+  selected: null, // id of the open message
   detail: null,
   poll: null,
 };
 
-
+/* ------------------------------------------------------------------ helpers */
 function h(tag, attrs, ...kids) {
   const el = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs || {})) {
@@ -93,7 +93,7 @@ function formatSize(n) {
   return (n / 1048576).toFixed(1) + " MB";
 }
 
-
+/* Postmark-style ring: how much of the retention window is left. Numbers only, so innerHTML is safe. */
 function ring(expiresAt) {
   const left = daysLeft(expiresAt);
   const frac = Math.min(1, left / state.retention);
@@ -111,23 +111,30 @@ function pin() {
   return span;
 }
 
-
+/* ------------------------------------------------------------------ views */
 function show(view) {
-  for (const id of ["gate", "auth", "app"]) $("#" + id).hidden = id !== view;
+  for (const id of ["gate", "auth", "enterprise", "app"]) $("#" + id).hidden = id !== view;
 }
 
 function signedOut(message) {
+  // Enterprise people go back to the enterprise sign-in page, everyone else to the normal one.
+  const enterprise = localStorage.getItem("sps_ent") === "1";
   state.token = null;
   state.me = null;
   localStorage.removeItem("sps_token");
   clearInterval(state.poll);
-  show(state.gate ? "auth" : "gate");
-  if (message) $("#li-error").textContent = message;
+  show(enterprise ? "enterprise" : state.gate ? "auth" : "gate");
+  if (message) $(enterprise ? "#el-error" : "#li-error").textContent = message;
 }
 
 function enterApp() {
   show("app");
   $("#who").textContent = state.me.address;
+  $("#admin-btn").hidden = !state.me.is_admin;
+  const ent = state.me.enterprise;
+  $("#ent-btn").hidden = !(ent && ent.role === "manager");
+  $("#who-ent").hidden = !ent;
+  if (ent) $("#who-ent").textContent = ent.role === "manager" ? `${ent.name} (manager)` : ent.name;
   state.retention = state.me.retention_days;
   state.selected = null;
   state.detail = null;
@@ -137,7 +144,7 @@ function enterApp() {
   state.poll = setInterval(() => { if (!document.hidden) loadList(); }, 30000);
 }
 
-
+/* ------------------------------------------------------------------ gate / signup / login */
 $("#gate-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const btn = e.submitter;
@@ -157,12 +164,39 @@ $("#gate-form").addEventListener("submit", async (e) => {
   }
 });
 
-async function startSession(r) {
+async function startSession(r, viaEnterprise = false) {
   state.token = r.token;
   localStorage.setItem("sps_token", r.token);
+  if (viaEnterprise) localStorage.setItem("sps_ent", "1");
+  else localStorage.removeItem("sps_ent");
   state.me = await api("/api/me");
   enterApp();
 }
+
+$("#ent-open").addEventListener("click", () => { show("enterprise"); $("#el-user").focus(); });
+$("#ent-back").addEventListener("click", () => {
+  $("#el-error").textContent = "";
+  show(state.gate ? "auth" : "gate");
+});
+
+$("#ent-login-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = e.submitter;
+  btn.disabled = true;
+  $("#el-error").textContent = "";
+  try {
+    const r = await api("/api/login", {
+      method: "POST", auth: false,
+      body: { username: $("#el-user").value, password: $("#el-pw").value, enterprise: true },
+    });
+    $("#el-pw").value = "";
+    await startSession(r, true);
+  } catch (err) {
+    $("#el-error").textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 $("#signup-form").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -214,6 +248,7 @@ $("#logout-btn").addEventListener("click", async () => {
   signedOut();
 });
 
+/* ------------------------------------------------------------------ message list */
 function setFolder(folder) {
   state.folder = folder;
   state.selected = null;
@@ -279,7 +314,7 @@ $("#q").addEventListener("input", () => {
   searchTimer = setTimeout(loadList, 300);
 });
 
-
+/* ------------------------------------------------------------------ reader */
 function resetReader() {
   $("#reader").replaceChildren(h("p", { class: "placeholder" }, "Select an email to read it."));
 }
@@ -375,7 +410,7 @@ function renderReader(d) {
       d.folder === "inbox" ? h("button", { class: "btn", type: "button", onclick: () => openCompose(d) }, "Reply") : null,
       h("button", { class: "btn", type: "button", onclick: () => deleteMessage(d) }, "Delete")),
     bodyHost,
-    atts,
+    ...(atts ? [atts] : []),
   );
   reader.scrollTop = 0;
 }
@@ -507,6 +542,238 @@ $("#pw-form").addEventListener("submit", async (e) => {
   }
 });
 
+/* ------------------------------------------------------------------ admin */
+const adminDlg = $("#admin-dialog");
+$("#admin-btn").addEventListener("click", () => {
+  $("#adm-error").textContent = "";
+  adminDlg.showModal();
+  loadAdmin();
+});
+$("#admin-close").addEventListener("click", () => adminDlg.close());
+
+async function loadAdmin() {
+  try {
+    renderAdmin(await api("/api/admin/overview"));
+  } catch (err) {
+    $("#adm-error").textContent = err.message;
+  }
+}
+
+async function adminCall(path, options, doneMessage) {
+  $("#adm-error").textContent = "";
+  try {
+    await api(path, options);
+    toast(doneMessage);
+  } catch (err) {
+    $("#adm-error").textContent = err.message;
+  }
+  await loadAdmin();
+}
+
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+function renderAdmin(r) {
+  $("#admin-stats").textContent = `${plural(r.totals.users, "account")}, ${plural(r.totals.enterprises, "enterprise")}, ${plural(r.totals.messages, "email")} stored, ${r.totals.kept} marked Do not delete.`;
+  renderAdminEnts(r.enterprises);
+  $("#adm-signups").checked = r.signups_enabled;
+  $("#adm-pw-src").textContent = `(now set from the ${r.password_source})`;
+  const body = $("#adm-users");
+  body.replaceChildren();
+  for (const u of r.users) {
+    const you = u.username === r.me;
+    const link = (label, fn, cls = "link") => h("button", { class: cls, type: "button", onclick: fn }, label);
+    body.append(h("tr", null,
+      h("td", null, u.address, u.is_admin ? h("span", { class: "badge" }, "admin") : null,
+        u.enterprise ? h("span", { class: "hint" }, u.ent_role === "manager" ? `${u.enterprise} (manager)` : u.enterprise) : null,
+        you ? h("span", { class: "hint" }, "(you)") : null),
+      h("td", null, shortDate(u.created_at)),
+      h("td", null, String(u.messages)),
+      h("td", null, u.last_login ? shortDate(u.last_login) : "-"),
+      h("td", { class: "acts" },
+        link("Reset password", () => adminResetPassword(u)),
+        u.is_admin ? (you ? null : link("Remove admin", () => adminSetAdmin(u, false))) : u.enterprise ? null : link("Make admin", () => adminSetAdmin(u, true)),
+        !u.is_admin && !you ? link("Delete", () => adminDelete(u), "link danger") : null),
+    ));
+  }
+}
+
+function renderAdminEnts(list) {
+  const body = $("#adm-ents");
+  body.replaceChildren();
+  $("#adm-ents-empty").hidden = list.length > 0;
+  $("#adm-ents-wrap").hidden = list.length === 0;
+  for (const e of list) {
+    body.append(h("tr", null,
+      h("td", null, e.name),
+      h("td", null, e.managers || "-"),
+      h("td", null, `${e.used} of ${e.max_members}`),
+      h("td", null, shortDate(e.created_at)),
+      h("td", { class: "acts" },
+        h("button", { class: "link", type: "button", onclick: () => adminEntLimit(e) }, "Change limit"),
+        h("button", { class: "link danger", type: "button", onclick: () => adminEntDelete(e) }, "Delete")),
+    ));
+  }
+}
+
+function adminEntLimit(e) {
+  const v = prompt(`Account limit for ${e.name} (now ${e.max_members}, ${e.used} in use):`, String(e.max_members));
+  if (v === null) return;
+  adminCall(`/api/admin/enterprises/${e.id}/limit`, { method: "POST", body: { max_members: Number(v) } }, `Limit changed for ${e.name}.`);
+}
+
+function adminEntDelete(e) {
+  const typed = prompt(`This permanently deletes ${e.name}, its ${plural(e.used, "account")} and all their emails.\n\nType the enterprise name to confirm:`);
+  if (!typed) return;
+  adminCall(`/api/admin/enterprises/${e.id}`, { method: "DELETE", body: { confirm: typed } }, `Deleted ${e.name}.`);
+}
+
+$("#adm-ent-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("#ae-error").textContent = "";
+  const name = $("#ae-name").value.trim();
+  try {
+    await api("/api/admin/enterprises", {
+      method: "POST",
+      body: { name, manager_username: $("#ae-user").value, manager_password: $("#ae-pw").value, max_members: Number($("#ae-seats").value) },
+    });
+    toast(`Created ${name}. Give its manager their address and password.`, 7000);
+    e.target.reset();
+  } catch (err) {
+    $("#ae-error").textContent = err.message;
+  }
+  loadAdmin();
+});
+
+function adminResetPassword(u) {
+  const pw = prompt(`New password for ${u.address} (at least 10 characters).\nThey will be signed out everywhere.`);
+  if (!pw) return;
+  adminCall(`/api/admin/users/${encodeURIComponent(u.username)}/reset-password`, { method: "POST", body: { password: pw } }, `Password changed for ${u.address}.`);
+}
+
+function adminSetAdmin(u, make) {
+  adminCall(`/api/admin/users/${encodeURIComponent(u.username)}/admin`, { method: "POST", body: { admin: make } },
+    make ? `${u.address} is now an admin.` : `${u.address} is no longer an admin.`);
+}
+
+function adminDelete(u) {
+  if (!confirm(`Delete ${u.address} and all of their emails permanently?`)) return;
+  adminCall(`/api/admin/users/${encodeURIComponent(u.username)}`, { method: "DELETE" }, `Deleted ${u.address}.`);
+}
+
+$("#adm-signups").addEventListener("change", (e) =>
+  adminCall("/api/admin/settings", { method: "POST", body: { signups_enabled: e.target.checked } },
+    e.target.checked ? "Sign-ups are open." : "Sign-ups are closed."));
+
+$("#adm-pw-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const value = $("#adm-pw").value;
+  if (!value) return;
+  await adminCall("/api/admin/settings", { method: "POST", body: { signup_password: value } }, "Access password changed.");
+  $("#adm-pw").value = "";
+});
+
+/* ------------------------------------------------------------------ enterprise manager */
+const entDlg = $("#ent-dialog");
+$("#ent-btn").addEventListener("click", () => {
+  $("#ent-error").textContent = "";
+  entDlg.showModal();
+  loadEnt();
+});
+$("#ent-close").addEventListener("click", () => entDlg.close());
+
+async function loadEnt() {
+  try {
+    renderEnt(await api("/api/enterprise/overview"));
+  } catch (err) {
+    $("#ent-error").textContent = err.message;
+  }
+}
+
+async function entCall(path, options, doneMessage) {
+  $("#ent-error").textContent = "";
+  try {
+    await api(path, options);
+    toast(doneMessage);
+  } catch (err) {
+    $("#ent-error").textContent = err.message;
+  }
+  await loadEnt();
+}
+
+function renderEnt(r) {
+  $("#ent-title").textContent = r.name;
+  $("#ent-stats").textContent = `${r.used} of ${plural(r.max_members, "account")} used.`;
+  const body = $("#ent-members");
+  body.replaceChildren();
+  for (const m of r.members) {
+    const you = m.username === r.me;
+    const link = (label, fn, cls = "link") => h("button", { class: cls, type: "button", onclick: fn }, label);
+    const path = `/api/enterprise/members/${encodeURIComponent(m.username)}`;
+    body.append(h("tr", null,
+      h("td", null, m.address, m.is_manager ? h("span", { class: "badge" }, "manager") : null, you ? h("span", { class: "hint" }, "(you)") : null),
+      h("td", null, shortDate(m.created_at)),
+      h("td", null, String(m.messages)),
+      h("td", null, m.last_login ? shortDate(m.last_login) : "-"),
+      h("td", { class: "acts" },
+        link("Reset password", () => {
+          const pw = prompt(`New password for ${m.address} (at least 10 characters).\nThey will be signed out everywhere.`);
+          if (pw) entCall(`${path}/reset-password`, { method: "POST", body: { password: pw } }, `Password changed for ${m.address}.`);
+        }),
+        you ? null : link(m.is_manager ? "Remove manager" : "Make manager",
+          () => entCall(`${path}/manager`, { method: "POST", body: { manager: !m.is_manager } },
+            m.is_manager ? `${m.address} is no longer a manager.` : `${m.address} is now a manager.`)),
+        !m.is_manager && !you ? link("Delete", () => {
+          if (confirm(`Delete ${m.address} and all of their emails permanently?`)) entCall(path, { method: "DELETE" }, `Deleted ${m.address}.`);
+        }, "link danger") : null),
+    ));
+  }
+}
+
+$("#ent-add-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("#ent-error").textContent = "";
+  try {
+    const r = await api("/api/enterprise/members", { method: "POST", body: { username: $("#ea-user").value, password: $("#ea-pw").value } });
+    toast(`Created ${r.address}. Give them the password so they can use Enterprise sign-in.`, 7000);
+    e.target.reset();
+  } catch (err) {
+    $("#ent-error").textContent = err.message;
+  }
+  loadEnt();
+});
+
+/* ------------------------------------------------------------------ install as an app (PWA) */
+let installPrompt = null;
+const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  installPrompt = e;
+  $("#install-btn").hidden = isStandalone();
+});
+window.addEventListener("appinstalled", () => {
+  installPrompt = null;
+  $("#install-btn").hidden = true;
+  toast("SPS Email is installed.");
+});
+if (isIOS && !isStandalone()) $("#install-btn").hidden = false;
+
+$("#install-btn").addEventListener("click", async () => {
+  if (installPrompt) {
+    installPrompt.prompt();
+    await installPrompt.userChoice;
+    installPrompt = null;
+    $("#install-btn").hidden = true;
+  } else {
+    toast("To install: tap the Share button, then Add to Home Screen.", 9000);
+  }
+});
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+}
+
 /* ------------------------------------------------------------------ start */
 document.addEventListener("visibilitychange", () => { if (!document.hidden && state.token && !$("#app").hidden) loadList(); });
 
@@ -518,10 +785,13 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden && st
       return;
     } catch (err) {
       if (err.status === 0) {
-        show("auth");
-        $("#li-error").textContent = err.message;
+        // Can't reach the server (offline): show the sign-in page this person normally uses.
+        const enterprise = localStorage.getItem("sps_ent") === "1";
+        show(enterprise ? "enterprise" : "auth");
+        $(enterprise ? "#el-error" : "#li-error").textContent = err.message;
         return;
       }
+      if (err.status === 401) return; // signedOut() has already chosen the right page
     }
   }
   show(state.gate ? "auth" : "gate");

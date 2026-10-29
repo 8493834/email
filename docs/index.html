@@ -2,11 +2,20 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="light dark">
   <meta name="referrer" content="no-referrer">
   <title>SPS Email</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231b5a49'/%3E%3Cpath d='M6 11l10 7 10-7' fill='none' stroke='%23f4f8f5' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Crect x='6' y='9' width='20' height='14' rx='2' fill='none' stroke='%23f4f8f5' stroke-width='2.4'/%3E%3C/svg%3E">
+  <meta name="theme-color" content="#1b5a49" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0e1613" media="(prefers-color-scheme: dark)">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="SPS Email">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -20,6 +29,33 @@
       <input id="gate-pw" type="password" required autofocus>
       <p class="error" id="gate-error" role="alert"></p>
       <button class="btn primary" type="submit">Continue</button>
+    </form>
+
+    <hr>
+
+    <section aria-labelledby="ent-h">
+      <h2 id="ent-h">Enterprise</h2>
+      <p class="lede">Part of an organisation? Sign in with the account your enterprise manager made for you.</p>
+      <button class="btn" type="button" id="ent-open">Enterprise sign-in</button>
+    </section>
+  </main>
+
+  <!-- Enterprise sign-in -->
+  <main id="enterprise" class="narrow" hidden>
+    <h1 class="brand-lg">SPS Email</h1>
+    <h2>Enterprise sign-in</h2>
+    <p class="lede">Use the address and password your enterprise manager gave you. You don't need the access password.</p>
+    <form id="ent-login-form">
+      <label for="el-user">Address</label>
+      <div class="addr">
+        <input id="el-user" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+        <span class="suffix">@sps-email.com</span>
+      </div>
+      <label for="el-pw">Password</label>
+      <input id="el-pw" type="password" autocomplete="current-password" required>
+      <p class="error" id="el-error" role="alert"></p>
+      <button class="btn primary" type="submit">Sign in</button>
+      <button class="btn" type="button" id="ent-back">Back</button>
     </form>
   </main>
 
@@ -71,6 +107,10 @@
       </nav>
       <div class="who">
         <span id="who" class="who-addr"></span>
+        <span id="who-ent" class="who-ent" hidden></span>
+        <button type="button" class="link" id="admin-btn" hidden>Admin</button>
+        <button type="button" class="link" id="ent-btn" hidden>Manage enterprise</button>
+        <button type="button" class="link" id="install-btn" hidden>Install app</button>
         <button type="button" class="link" id="pw-btn">Change password</button>
         <button type="button" class="link" id="logout-btn">Log out</button>
       </div>
@@ -120,6 +160,82 @@
       <p class="error" id="pw-error" role="alert"></p>
       <footer><button class="btn primary" type="submit">Save password</button></footer>
     </form>
+  </dialog>
+
+  <!-- Admin -->
+  <dialog id="admin-dialog" class="wide">
+    <div class="dlg">
+      <header><h2>Admin</h2><button type="button" class="link" id="admin-close">Close</button></header>
+      <p class="hint" id="admin-stats"></p>
+
+      <h3>Sign-ups</h3>
+      <label class="check"><input type="checkbox" id="adm-signups"> Allow new people to create accounts</label>
+      <form id="adm-pw-form" class="inline-form">
+        <label for="adm-pw">New access password <span class="hint" id="adm-pw-src"></span></label>
+        <div class="row">
+          <input id="adm-pw" type="password" autocomplete="new-password" minlength="8" placeholder="At least 8 characters">
+          <button class="btn" type="submit">Change</button>
+        </div>
+      </form>
+      <p class="error" id="adm-error" role="alert"></p>
+
+      <h3>Enterprises</h3>
+      <form id="adm-ent-form" class="form-grid">
+        <div class="full"><label for="ae-name">Enterprise name</label>
+          <input id="ae-name" maxlength="60" required autocomplete="off"></div>
+        <div><label for="ae-user">Manager's address</label>
+          <div class="addr"><input id="ae-user" autocapitalize="none" spellcheck="false" required autocomplete="off"><span class="suffix">@sps-email.com</span></div></div>
+        <div><label for="ae-pw">Manager's password <span class="hint">at least 10 characters</span></label>
+          <input id="ae-pw" type="password" minlength="10" required autocomplete="new-password"></div>
+        <div><label for="ae-seats">Account limit</label>
+          <input id="ae-seats" type="number" min="1" max="100000" value="50" required></div>
+        <div class="end"><button class="btn" type="submit">Create enterprise</button></div>
+      </form>
+      <p class="error" id="ae-error" role="alert"></p>
+      <div class="table-wrap" id="adm-ents-wrap">
+        <table class="users ents">
+          <thead><tr><th>Enterprise</th><th>Manager</th><th>Accounts</th><th>Created</th><th><span class="sr">Actions</span></th></tr></thead>
+          <tbody id="adm-ents"></tbody>
+        </table>
+      </div>
+      <p class="empty-note" id="adm-ents-empty" hidden>No enterprises yet.</p>
+
+      <h3>Accounts</h3>
+      <div class="table-wrap">
+        <table class="users">
+          <thead><tr><th>Address</th><th>Joined</th><th>Emails</th><th>Last login</th><th><span class="sr">Actions</span></th></tr></thead>
+          <tbody id="adm-users"></tbody>
+        </table>
+      </div>
+      <p class="hint">Admins manage accounts. They can't read anyone's emails.</p>
+    </div>
+  </dialog>
+
+  <!-- Enterprise manager -->
+  <dialog id="ent-dialog" class="wide">
+    <div class="dlg">
+      <header><h2 id="ent-title">Enterprise</h2><button type="button" class="link" id="ent-close">Close</button></header>
+      <p class="hint" id="ent-stats"></p>
+
+      <h3>Add an account</h3>
+      <form id="ent-add-form" class="form-grid">
+        <div><label for="ea-user">Address</label>
+          <div class="addr"><input id="ea-user" autocapitalize="none" spellcheck="false" required autocomplete="off"><span class="suffix">@sps-email.com</span></div></div>
+        <div><label for="ea-pw">Password <span class="hint">at least 10 characters</span></label>
+          <input id="ea-pw" type="password" minlength="10" required autocomplete="new-password"></div>
+        <div class="full end"><button class="btn primary" type="submit">Create account</button></div>
+      </form>
+      <p class="error" id="ent-error" role="alert"></p>
+
+      <h3>Accounts</h3>
+      <div class="table-wrap">
+        <table class="users">
+          <thead><tr><th>Address</th><th>Joined</th><th>Emails</th><th>Last login</th><th><span class="sr">Actions</span></th></tr></thead>
+          <tbody id="ent-members"></tbody>
+        </table>
+      </div>
+      <p class="hint">Share each person's address and password with them. They sign in with <strong>Enterprise sign-in</strong>. Managers can't read anyone's emails.</p>
+    </div>
   </dialog>
 
   <div id="toast" class="toast" role="status" hidden></div>
